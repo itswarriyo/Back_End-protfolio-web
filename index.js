@@ -1,55 +1,38 @@
 let express = require("express");
 require("dotenv").config();
-let app = express();
 let cors = require("cors");
 let mongoose = require("mongoose");
 
-const dns = require("dns");
+let app = express();
 
-dns.setServers([
-  "1.1.1.1",
-  "8.8.8.8"
-]);
+app.use(express.json());
+app.use(cors({ origin: "*" }));
 
 const enqueryroute = require("./App/Router/protfolio.router");
-app.use(express.json())
-app.use(cors({
-    origin: "*"
-})); 
- 
-app.use("/api/enquery", enqueryroute)
+app.use("/api/enquery", enqueryroute);
 
+// MongoDB cache (VERY IMPORTANT for Vercel)
+let isConnected = false;
 
+const connectDB = async () => {
+  if (isConnected) return;
 
-// mongoose.connect(process.env.DBURL).then(() => {
-//     console.log("Mongoose Connected Succesfully.")
-//     app.listen(process.env.PORT || 3000, () => {
-//         console.log("Your server start is running now.", 'On Port', process.env.PORT)
-//     })
-// }).catch((err) => {
-//     console.log({ status: 0, Message: "Server Error !", Error: err })
+  await mongoose.connect(process.env.DBURL);
+  isConnected = true;
 
-// })
-
-const connect = async () => {
-  try {
-    await mongoose.connect(process.env.DBURL);
-
-    console.log("MongoDB connected successfully 🚀");
-
-    app.listen(process.env.PORT || 3000, () => {
-      console.log("Server running on port", process.env.PORT || 3000);
-      console.log("Mongo Host:", mongoose.connection.host);
-    });
-
-  } catch (err) {
-    console.log({
-      status: 0,
-      Message: "Server Error !",
-      Error: err.message
-    });
-
-  }
+  console.log("MongoDB connected 🚀");
 };
 
-connect();
+// middleware for DB connection
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: "DB Connection Failed" });
+  }
+});
+
+// export app ONLY (NO app.listen)
+module.exports = app;
